@@ -1,7 +1,7 @@
 import requests
 import lxml.html as lh
 import pandas as pd
-import json
+import matplotlib.pyplot as plt
 
 url='https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html'
 
@@ -24,10 +24,20 @@ for T in tr_elements:
 
 total_cases = {}
 for i in tr_elements:
-    total_cases[i[0].text_content()] = i[1].text_content()
+    total_cases[i[0].text_content()] = int(i[1].text_content().replace(".",""))
 
 """ for x in total_cases:
     print(x, total_cases[x]) """
 
-df = pd.DataFrame([total_cases])
+df = pd.DataFrame(total_cases.items(), columns=['Bundesland','Fallzahlen'])
 print(df)
+#print (df.head())
+
+plt.bar(range(len(df["Bundesland"].tolist())), df["Fallzahlen"].tolist())
+plt.xticks(range(len(df["Bundesland"].tolist())), df["Bundesland"].tolist(), rotation='vertical')
+plt.xlabel("Bundesland")
+plt.ylabel("Fallzahlen")
+plt.title("Covid-19 Fallzahlen in den deutschen Bundesländern")
+#df.plot(kind='bar')
+
+plt.show()

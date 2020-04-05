@@ -2,42 +2,61 @@ import requests
 import lxml.html as lh
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
+import urllib.request
+import math
 
-url='https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html'
+#data source handle
+url='https://opendata.ecdc.europa.eu/covid19/casedistribution/json/'
 
-page = requests.get(url) #Response object called page containing bytes, handle for contents
-#print (type(page))
+#fetch data from data source and convert
+httpResponse = urllib.request.urlopen(url) #type http.client.HTTPResponse
+byteStream = httpResponse.read() #type bytes
+jsonString = byteStream.decode() #type string
+jsonObject = json.loads(jsonString) #type dictionary
+jsonList = jsonObject["records"] #type list
 
-doc = lh.fromstring(page.content) #parses the string to a correct HTML document with <html> as parent node, doc is a lxml.html.HtmlElement object
-#print (type(doc))
-
-tr_elements = doc.xpath('//tbody/tr') #tr_elements is a list of all tr-elements (//) which are children of tbody in doc (which also are HtmlElements)
-#print (type(tr_elements))
-
-""" #check content and size of tr_elements in order to check if correct elements where selected
-#print (tr_elements)
-#print (len(tr_elements))
-for T in tr_elements:
-    #print (len(T))
-    #print (type(T))
-    print(T[0].text_content(), T[1].text_content()) """
-
-total_cases = {}
-for i in tr_elements:
-    total_cases[i[0].text_content()] = int(i[1].text_content().replace(".",""))
-
-""" for x in total_cases:
-    print(x, total_cases[x]) """
-
-df = pd.DataFrame(total_cases.items(), columns=['Bundesland','Fallzahlen'])
+#convert to pandas dataframe
+df = pd.json_normalize(jsonList)
 print(df)
-#print (df.head())
 
-plt.bar(range(len(df["Bundesland"].tolist())), df["Fallzahlen"].tolist())
-plt.xticks(range(len(df["Bundesland"].tolist())), df["Bundesland"].tolist(), rotation='vertical')
-plt.xlabel("Bundesland")
+#filter for data from Germany and invert data sequence
+dfGer = pd.DataFrame(df[df.geoId == 'DE'])
+dfGer = dfGer.sort_index(axis=0, ascending=False)
+print(dfGer)
+
+#extract number of cases from dataframe to list
+casesList = dfGer["cases"].astype(int).tolist()
+
+#create new column in dataframe for cumulative number of cases
+casesCum = casesList.copy()
+for i in range(1,len(casesCum)): #since first row has no predecessor you have to start loop from second row
+    casesCum[i] = casesCum[i] + casesCum[i-1]
+dfGer['casesCum'] = casesCum
+
+#create new column in dataframe for log of cumulative number of cases
+casesCumLog = casesCum.copy()
+for i in range(1,len(casesCumLog)):
+    if(casesCumLog[i] != 0):
+        casesCumLog[i] = math.log(casesCumLog[i])
+dfGer['casesCumLog'] = casesCumLog
+
+print(dfGer)
+
+#plot cumulative number of cases over time
+casesCumPlot = plt.figure(1)
+plt.plot(range(len(dfGer["dateRep"].tolist())), dfGer["casesCum"].tolist())
+plt.xticks(range(len(dfGer["dateRep"].tolist())), dfGer["dateRep"].tolist(), rotation='vertical')
+plt.xlabel("Datum")
 plt.ylabel("Fallzahlen")
-plt.title("Covid-19 Fallzahlen in den deutschen Bundesländern")
-#df.plot(kind='bar')
+plt.title("Covid-19 Fallzahlen in Deutschland")
+
+#plot log of cumulative number of cases over time
+casesCumLogPlot = plt.figure(2)
+plt.plot(range(len(dfGer["dateRep"].tolist())), dfGer["casesCumLog"].tolist())
+plt.xticks(range(len(dfGer["dateRep"].tolist())), dfGer["dateRep"].tolist(), rotation='vertical')
+plt.xlabel("Datum")
+plt.ylabel("Logarithmierte Fallzahlen")
+plt.title("Logarithmierte Covid-19 Fallzahlen in Deutschland")
 
 plt.show()

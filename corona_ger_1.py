@@ -6,51 +6,57 @@ import json
 import urllib.request
 import math
 
+#data source handle
 url='https://opendata.ecdc.europa.eu/covid19/casedistribution/json/'
 
-jsondata = urllib.request.urlopen(url).read().decode()
+#fetch data from data source and convert
+httpResponse = urllib.request.urlopen(url) #type http.client.HTTPResponse
+byteStream = httpResponse.read() #type bytes
+jsonString = byteStream.decode() #type string
+jsonObject = json.loads(jsonString) #type dictionary
+jsonList = jsonObject["records"] #type list
 
-jsonobj = json.loads(jsondata)
-
-jsonlist = jsonobj["records"]
-#print(jsonlist)
-
-#print(jsonobj)
-print(type(jsonobj))
-print(type(jsonlist))
-
-df = pd.json_normalize(jsonlist)
+#convert to pandas datafrane
+df = pd.json_normalize(jsonList)
 print(df)
 
-dfger = pd.DataFrame(df[df.geoId == 'DE'])
-dfger = dfger.sort_index(axis=0, ascending=False)
-print(dfger)
+#filter for data from Germany and invert data sequence
+dfGer = pd.DataFrame(df[df.geoId == 'DE'])
+dfGer = dfGer.sort_index(axis=0, ascending=False)
+print(dfGer)
 
-cases_list = dfger["cases"].astype(int).tolist()
-cases_cum = cases_list.copy()
-for i in range(1,len(cases_cum)):
-    cases_cum[i] = cases_cum[i] + cases_cum[i-1]
+#extract number of cases from dataframe to list
+casesList = dfGer["cases"].astype(int).tolist()
 
-print(cases_cum)
-print(len(cases_cum))
-dfger['cases_cum'] = cases_cum
+#create new column in dataframe for cumulative number of cases
+casesCum = casesList.copy()
+for i in range(1,len(casesCum)): #since first row has no predecessor you have to start loop from second row
+    casesCum[i] = casesCum[i] + casesCum[i-1]
+dfGer['casesCum'] = casesCum
 
-cases_cum_log = cases_cum.copy()
-for i in range(1,len(cases_cum_log)):
-    if(cases_cum_log[i] != 0):
-        cases_cum_log[i] = math.log(cases_cum_log[i])
+#create new column in dataframe for log of cumulative number of cases
+casesCumLog = casesCum.copy()
+for i in range(1,len(casesCumLog)):
+    if(casesCumLog[i] != 0):
+        casesCumLog[i] = math.log(casesCumLog[i])
+dfGer['casesCumLog'] = casesCumLog
 
-print(cases_cum_log)
-print(len(cases_cum_log))
-dfger['cases_cum_log'] = cases_cum_log
+print(dfGer)
 
-print(dfger)
-
-
-plt.plot(range(len(dfger["dateRep"].tolist())), dfger["cases_cum"].tolist())
-plt.xticks(range(len(dfger["dateRep"].tolist())), dfger["dateRep"].tolist(), rotation='vertical')
+#plot cumulative number of cases over time
+casesCumPlot = plt.figure(1)
+plt.plot(range(len(dfGer["dateRep"].tolist())), dfGer["casesCum"].tolist())
+plt.xticks(range(len(dfGer["dateRep"].tolist())), dfGer["dateRep"].tolist(), rotation='vertical')
 plt.xlabel("Datum")
 plt.ylabel("Fallzahlen")
 plt.title("Covid-19 Fallzahlen in Deutschland")
+
+#plot log of cumulative number of cases over time
+casesCumLogPlot = plt.figure(2)
+plt.plot(range(len(dfGer["dateRep"].tolist())), dfGer["casesCumLog"].tolist())
+plt.xticks(range(len(dfGer["dateRep"].tolist())), dfGer["dateRep"].tolist(), rotation='vertical')
+plt.xlabel("Datum")
+plt.ylabel("Logarithmierte Fallzahlen")
+plt.title("Logarithmierte Covid-19 Fallzahlen in Deutschland")
 
 plt.show()

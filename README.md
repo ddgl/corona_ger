@@ -1,2 +1,2 @@
 # corona_ger
-just a depiction of the corona cases in Germany based on the RKI's data
+just a simple script depicting the corona cases in Germany based on the ECDC's and RKI's data

@@ -26,7 +26,7 @@ dfGer = dfGer.sort_index(axis=0, ascending=False)
 print(dfGer)
 
 #extract number of cases from dataframe to list
-casesList = dfGer["cases_weekly"].astype(int).tolist()
+casesList = dfGer["cases"].astype(int).tolist()
 
 #create new column in dataframe for cumulative number of cases
 casesCum = casesList.copy()
